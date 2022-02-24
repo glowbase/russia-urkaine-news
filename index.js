@@ -8,9 +8,9 @@ const { parse } = require('node-html-parser');
 // Allow axios to retry the connection since the site being scraped
 // seems to spit out HTTP 500 errors all over the place
 axiosRetry(axios, {
-  retries: 50,
+  retries: 10,
   retryDelay: () => {
-    return 3000; // Wait 3 seconds before retrying
+    return 0; // Wait 3 seconds before retrying
   },
   retryCondition: error => {
     console.log(error.response.status, 'Retrying...');
@@ -19,10 +19,7 @@ axiosRetry(axios, {
   },
 });
 
-function newsUpdates() {
-  setInterval(async () => {
-    console.log('GATHERING INFORMATION');
-
+async function newsUpdates() {
     const url = 'https://liveuamap.com';
     const { data } = await axios.get(url);
 
@@ -44,7 +41,7 @@ function newsUpdates() {
     const formattedTitle = newsFeed.childNodes[0].querySelector('.title').innerText.trim();
 
     // Keep track of the post id's so we don't post duplicates
-    const lastPostId = require('./lastid.txt');
+    const lastPostId = fs.readFileSync('./lastid.txt', 'utf-8');
 
     if (lastPostId == formattedId) return; // Don't post if we have already
 
@@ -84,8 +81,6 @@ function newsUpdates() {
     fs.writeFileSync('./lastid.txt', formattedId);
 
     console.log('NEW POST:', formattedId);
-    console.log('RETREIVED INFORMATION');
-  }, 1000 * 60);
 }
 
 newsUpdates();
