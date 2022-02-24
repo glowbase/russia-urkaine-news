@@ -1,0 +1,19 @@
+{
+  "name": "russia-ukraine-news",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.26.0",
+    "axios-retry": "^3.2.4",
+    "dotenv": "^16.0.0",
+    "fs": "^0.0.1-security",
+    "node-html-parser": "^5.2.0"
+  }
+}
