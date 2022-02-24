@@ -10,7 +10,7 @@ const { parse } = require('node-html-parser');
 axiosRetry(axios, {
   retries: 50,
   retryDelay: () => {
-    return 2000; // Wait 2 seconds before retrying
+    return 3000; // Wait 3 seconds before retrying
   },
   retryCondition: error => {
     console.log(error.response.status, 'Retrying...');
@@ -19,6 +19,9 @@ axiosRetry(axios, {
   },
 });
 
+// Keep track of the update id's so we don't post duplicates
+let lastPostId = '';
+
 async function newsUpdates() {
   const url = 'https://liveuamap.com';
   const { data } = await axios.get(url);
@@ -26,10 +29,6 @@ async function newsUpdates() {
   // Parse response so we can use it like normal HTML
   const newsFeed = parse(data).querySelector('#feedler');
   const newsResults = [];
-
-  // Keep track of the update id's so we don't post duplicates
-  const { ids } = require('./sent.json');
-  const sentIds = { ids: ids };
 
   const formattedId = newsFeed.childNodes[0].id.split('-')[1];
 
@@ -44,7 +43,7 @@ async function newsUpdates() {
   // TODO: Make the @username's bolded, because why not
   const formattedTitle = newsFeed.childNodes[0].querySelector('.title').innerText.trim();
 
-  if (ids.includes(formattedId)) return; // Don't post if we have already
+  if (lastPostId == formattedId) return; // Don't post if we have already
 
   newsResults.push({
     id: formattedId,
@@ -52,10 +51,11 @@ async function newsUpdates() {
     title: formattedTitle,
     image: formattedImage,
   });
-  sentIds.ids.push(formattedId);
+
+  lastPostId = formattedId;
   
   // Send Discord webhook
-  axios({
+  await axios({
     method: 'POST',
     headers: {
       "Content-Type": "application/json"
@@ -81,15 +81,11 @@ async function newsUpdates() {
   });
 
   console.log('NEW ID:', formattedId);
-
-  // Save posted id's so it's persistent if the scraper needs to be restarted
-  fs.writeFileSync('./sent.json', JSON.stringify(sentIds))
-
   console.log('RETREIVED INFORMATION');
 }
 
 newsUpdates();
 
-setInterval(() => {
-  newsUpdates();
-}, 1000 * 60); // Run every minute
+setInterval(async () => {
+  await newsUpdates();
+}, 1000 * 60 * 2); // Run every 2 minutes
