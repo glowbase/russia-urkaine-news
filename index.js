@@ -19,7 +19,7 @@ axiosRetry(axios, {
   },
 });
 
-// Keep track of the update id's so we don't post duplicates
+// Keep track of the post id's so we don't post duplicates
 let lastPostId = '';
 
 async function newsUpdates() {
@@ -80,12 +80,13 @@ async function newsUpdates() {
     console.log(error.message);
   });
 
-  console.log('NEW ID:', formattedId);
+  console.log('NEW POST:', formattedId);
   console.log('RETREIVED INFORMATION');
 }
 
 newsUpdates();
 
 setInterval(async () => {
+  console.log('GATHERING INFORMATION');
   await newsUpdates();
 }, 1000 * 60 * 2); // Run every 2 minutes
