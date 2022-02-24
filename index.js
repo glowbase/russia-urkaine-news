@@ -19,74 +19,73 @@ axiosRetry(axios, {
   },
 });
 
-// Keep track of the post id's so we don't post duplicates
-let lastPostId = '';
+function newsUpdates() {
+  setInterval(async () => {
+    console.log('GATHERING INFORMATION');
 
-async function newsUpdates() {
-  const url = 'https://liveuamap.com';
-  const { data } = await axios.get(url);
+    const url = 'https://liveuamap.com';
+    const { data } = await axios.get(url);
 
-  // Parse response so we can use it like normal HTML
-  const newsFeed = parse(data).querySelector('#feedler');
-  const newsResults = [];
+    // Parse response so we can use it like normal HTML
+    const newsFeed = parse(data).querySelector('#feedler');
+    const newsResults = [];
 
-  const formattedId = newsFeed.childNodes[0].id.split('-')[1];
+    const formattedId = newsFeed.childNodes[0].id.split('-')[1];
 
-  // If there is an image let's display it, otherwise return null
-  const image = newsFeed.childNodes[0].querySelector('.img').childNodes;
-  const formattedImage = image.length ? newsFeed.childNodes[0].querySelector('.img').querySelector('img').getAttribute('src') : null
+    // If there is an image let's display it, otherwise return null
+    const image = newsFeed.childNodes[0].querySelector('.img').childNodes;
+    const formattedImage = image.length ? newsFeed.childNodes[0].querySelector('.img').querySelector('img').getAttribute('src') : null
 
-  // They don't format their time nicely, so let's fix that (it's terrible I know)...
-  const time = newsFeed.childNodes[0].querySelector('.date_add').innerText.trim();
-  const formattedTime = `${time.split(' ')[0]} ${(time.split(' ')[0] == 1) ? time.split(' ')[1] : time.split(' ')[1] + 's'} ago`;
+    // They don't format their time nicely, so let's fix that (it's terrible I know)...
+    const time = newsFeed.childNodes[0].querySelector('.date_add').innerText.trim();
+    const formattedTime = `${time.split(' ')[0]} ${(time.split(' ')[0] == 1) ? time.split(' ')[1] : time.split(' ')[1] + 's'} ago`;
 
-  // TODO: Make the @username's bolded, because why not
-  const formattedTitle = newsFeed.childNodes[0].querySelector('.title').innerText.trim();
+    // TODO: Make the @username's bolded, because why not
+    const formattedTitle = newsFeed.childNodes[0].querySelector('.title').innerText.trim();
 
-  if (lastPostId == formattedId) return; // Don't post if we have already
+    // Keep track of the post id's so we don't post duplicates
+    const lastPostId = require('./lastid.txt');
 
-  newsResults.push({
-    id: formattedId,
-    time: formattedTime,
-    title: formattedTitle,
-    image: formattedImage,
-  });
+    if (lastPostId == formattedId) return; // Don't post if we have already
 
-  lastPostId = formattedId;
-  
-  // Send Discord webhook
-  await axios({
-    method: 'POST',
-    headers: {
-      "Content-Type": "application/json"
-    },
-    url: process.env.WEBHOOK,
-    data: JSON.stringify({
-      "content": null,
-      "embeds": [
-        {
-          "description": formattedTitle,
-          "color": 16711680,
-          "footer": {
-            "text": "Posted " + formattedTime
-          },
-          "image": {
-            "url": formattedImage
+    newsResults.push({
+      id: formattedId,
+      time: formattedTime,
+      title: formattedTitle,
+      image: formattedImage,
+    });
+    
+    // Send Discord webhook
+    await axios({
+      method: 'POST',
+      headers: {
+        "Content-Type": "application/json"
+      },
+      url: process.env.WEBHOOK,
+      data: JSON.stringify({
+        "content": null,
+        "embeds": [
+          {
+            "description": formattedTitle,
+            "color": 16711680,
+            "footer": {
+              "text": "Posted " + formattedTime
+            },
+            "image": {
+              "url": formattedImage
+            }
           }
-        }
-      ]
-    })
-  }).catch(error => {
-    console.log(error.message);
-  });
+        ]
+      })
+    }).catch(error => {
+      console.log(error.message);
+    });
 
-  console.log('NEW POST:', formattedId);
-  console.log('RETREIVED INFORMATION');
+    fs.writeFileSync('./lastid.txt', formattedId);
+
+    console.log('NEW POST:', formattedId);
+    console.log('RETREIVED INFORMATION');
+  }, 1000 * 60);
 }
 
 newsUpdates();
-
-setInterval(async () => {
-  console.log('GATHERING INFORMATION');
-  await newsUpdates();
-}, 1000 * 60 * 2); // Run every 2 minutes
