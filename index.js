@@ -9,11 +9,11 @@ const { parse } = require('node-html-parser');
 // seems to spit out HTTP 500 errors all over the place
 axiosRetry(axios, {
   retries: 50,
-  retryDelay: retryCount => {
-    return retryCount * 2000; // Wait 2 seconds before retrying
+  retryDelay: () => {
+    return 2000; // Wait 2 seconds before retrying
   },
   retryCondition: error => {
-    console.log('Retrying...');
+    console.log(error.response.status, 'Retrying...');
 
     return error.response.status.toString().startsWith('5'); // Retry if it's a 500 error
   },
@@ -39,7 +39,7 @@ async function newsUpdates() {
 
   // They don't format their time nicely, so let's fix that (it's terrible I know)...
   const time = newsFeed.childNodes[0].querySelector('.date_add').innerText.trim();
-  const formattedTime = `${time.split(' ')[0]}${(time.split(' ')[0] == 1) ? time.split(' ')[1] : time.split(' ')[1] + 's'} ago`;
+  const formattedTime = `${time.split(' ')[0]} ${(time.split(' ')[0] == 1) ? time.split(' ')[1] : time.split(' ')[1] + 's'} ago`;
 
   // TODO: Make the @username's bolded, because why not
   const formattedTitle = newsFeed.childNodes[0].querySelector('.title').innerText.trim();
