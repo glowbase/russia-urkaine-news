@@ -104,3 +104,8 @@ dist
 .tern-port
 
 gcp_key.json
+
+.DS_Store
+
+firebase.json
+.firebaserc

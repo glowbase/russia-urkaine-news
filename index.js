@@ -83,6 +83,8 @@ async function getImage(html, id) {
 
   const url = await uploadFile(id);
 
+  fs.unlinkSync(`./${id}`);
+
   return url;
 }
 
