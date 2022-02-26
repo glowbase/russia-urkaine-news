@@ -1,19 +1,31 @@
 {
-  "name": "russia-ukraine-news",
+  "name": "russia-ukraine-updates-scraper",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glowbase/russia-ukraine-updates-scraper.git"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/glowbase/russia-ukraine-updates-scraper/issues"
+  },
+  "homepage": "https://github.com/glowbase/russia-ukraine-updates-scraper#readme",
   "dependencies": {
+    "@google-cloud/storage": "^5.18.2",
     "axios": "^0.26.0",
     "axios-retry": "^3.2.4",
     "dotenv": "^16.0.0",
+    "firebase-admin": "^10.0.2",
+    "firebase-functions": "^3.18.1",
     "fs": "^0.0.1-security",
+    "moment": "^2.29.1",
     "node-html-parser": "^5.2.0"
   }
 }

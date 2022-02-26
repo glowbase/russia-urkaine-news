@@ -1,86 +1,122 @@
-require('dotenv').config();
-
 const fs = require('fs');
 const axios = require('axios');
 const axiosRetry = require('axios-retry');
+const firebase = require('firebase-admin');
 const { parse } = require('node-html-parser');
+const { Storage } = require('@google-cloud/storage');
 
-// Allow axios to retry the connection since the site being scraped
-// seems to spit out HTTP 500 errors all over the place
-axiosRetry(axios, {
-  retries: 10,
-  retryDelay: () => {
-    return 0; // Wait 3 seconds before retrying
-  },
+const storage = new Storage({ keyFilename: "gcp_key.json" });
+const serviceAccount = require("./gcp_key.json");
+
+require('dotenv').config();
+
+firebase.initializeApp({
+  credential: firebase.credential.cert(serviceAccount),
+  databaseURL: "https://glowbase-portfolio-default-rtdb.asia-southeast1.firebasedatabase.app"
+});
+
+axiosRetry(axios, { retries: 50,
+  retryDelay: () => { return 0 },
   retryCondition: error => {
-    console.log(error.response.status, 'Retrying...');
-
-    return error.response.status.toString().startsWith('5'); // Retry if it's a 500 error
+    console.log('Retrying...');
+    return error.response.status.toString().startsWith('5');
   },
 });
 
-async function newsUpdates() {
-    const url = 'https://liveuamap.com';
-    const { data } = await axios.get(url);
-
-    // Parse response so we can use it like normal HTML
-    const newsFeed = parse(data).querySelector('#feedler');
-    const newsResults = [];
-
-    const formattedId = newsFeed.childNodes[0].id.split('-')[1];
-
-    // If there is an image let's display it, otherwise return null
-    const image = newsFeed.childNodes[0].querySelector('.img').childNodes;
-    const formattedImage = image.length ? newsFeed.childNodes[0].querySelector('.img').querySelector('img').getAttribute('src') : null
-
-    // They don't format their time nicely, so let's fix that (it's terrible I know)...
-    const time = newsFeed.childNodes[0].querySelector('.date_add').innerText.trim();
-    const formattedTime = `${time.split(' ')[0]} ${(time.split(' ')[0] == 1) ? time.split(' ')[1] : time.split(' ')[1] + 's'} ago`;
-
-    // TODO: Make the @username's bolded, because why not
-    const formattedTitle = newsFeed.childNodes[0].querySelector('.title').innerText.trim();
-
-    // Keep track of the post id's so we don't post duplicates
-    const lastPostId = fs.readFileSync('./lastid.txt', 'utf-8');
-
-    if (lastPostId == formattedId) return; // Don't post if we have already
-
-    newsResults.push({
-      id: formattedId,
-      time: formattedTime,
-      title: formattedTitle,
-      image: formattedImage,
-    });
-    
-    // Send Discord webhook
-    await axios({
-      method: 'POST',
+async function downloadFile(imageUrl, postId) {
+  try {
+    const { data } = await axios({
+      method: "GET",
+      url: imageUrl,
+      responseType: "stream",
       headers: {
-        "Content-Type": "application/json"
-      },
-      url: process.env.WEBHOOK,
-      data: JSON.stringify({
-        "content": null,
-        "embeds": [
-          {
-            "description": formattedTitle,
-            "color": 16711680,
-            "footer": {
-              "text": "Posted " + formattedTime
-            },
-            "image": {
-              "url": formattedImage
-            }
-          }
-        ]
-      })
-    }).catch(error => {
-      console.log(error.message);
+        'Origin': 'https://liveuamap.com'
+      }
     });
+  
+    data.pipe(fs.createWriteStream(`./${postId}.jpg`));
 
-    fs.writeFileSync('./lastid.txt', formattedId);
-
-    console.log('NEW POST:', formattedId);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
-newsUpdates();
+async function uploadFile(postId) {
+  await storage.bucket('russia-ukraine-news').upload(`./${postId}.jpg`, {
+    destination: `${postId}.jpg`,
+  });
+
+  return `https://storage.googleapis.com/russia-ukraine-news/${postId}.jpg`;
+}
+
+async function getPostHTML() {
+  const { data } = await axios.get('https://liveuamap.com');
+  const post_html = parse(data).querySelector('#feedler').childNodes[0];
+
+  return post_html;
+}
+
+function getTime(html) {
+  const time = html.querySelector('.date_add').innerText.split(' ');
+  let time_difference = time[0];
+
+  if (time[1] === 'hour') {
+    time_difference = time_difference * 3600000;
+  } else {
+    time_difference = time_difference * 60000;
+  }
+
+  const time_now = new Date().getTime();
+
+  return time_now - time_difference;
+}
+
+async function getImage(html, id) {
+  const image = html.querySelector('img');
+
+  if (!image) return '';
+
+  const result = await downloadFile(image.getAttribute('src'), id);
+
+  if (!result) return '';
+
+  const url = await uploadFile(id);
+
+  return url;
+}
+
+async function extractPostData(html) {
+  const id = html.id.replace('post-', '');
+  const image = await getImage(html, id);
+  const time = getTime(html);
+
+  return {
+    content: html.querySelector('.title').innerText,
+    timestamp: time,
+    image: image,
+  }
+}
+
+async function getPost() {
+  const html = await getPostHTML();
+  const id = html.id.replace('post-', '');
+
+  const exists = await firebase.database().ref(`/posts/${id}/`).once('value');
+  
+  if (!exists.val()) {
+    const post = await extractPostData(html);
+  
+    await firebase.database().ref('/posts/').update({
+      [id]: post
+    });
+
+    console.log('ADDED POST:', id);
+  } else {
+    console.log('NO UPDATE');
+  }
+
+  process.exit();
+}
+
+getPost();
