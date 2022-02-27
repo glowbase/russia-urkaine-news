@@ -109,3 +109,5 @@ gcp_key.json
 
 firebase.json
 .firebaserc
+
+/.vscode

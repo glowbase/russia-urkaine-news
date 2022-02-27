@@ -1,4 +1,2 @@
 node_modules/
-
-firebase.json
-.firebaserc
+gcp_key.json
