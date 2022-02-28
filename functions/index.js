@@ -1,13 +1,10 @@
-const { Storage } = require('@google-cloud/storage');
 const functions = require('firebase-functions');
 const { parse } = require('node-html-parser');
 const firebase = require('firebase-admin');
 const axiosRetry = require('axios-retry');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const axios = require('axios');
 const fs = require('fs');
-
-const storage = new Storage({ keyFilename: 'gcp_key.json' });
 
 require('dotenv').config();
 
@@ -39,7 +36,7 @@ async function downloadFile(imageUrl, postId) {
       }
     });
   
-    data.pipe(fs.createWriteStream(`./${postId}.jpg`));
+    data.pipe(fs.createWriteStream(`/tmp/${postId}.jpg`));
 
     return true;
   } catch (err) {
@@ -54,7 +51,7 @@ async function downloadFile(imageUrl, postId) {
  * @returns 
  */
 async function uploadFile(postId) {
-  await storage.bucket('russia-ukraine-news').upload(`./${postId}.jpg`, {
+  await firebase.storage().bucket('russia-ukraine-news').upload(`/tmp/${postId}.jpg`, {
     destination: `${postId}.jpg`,
   });
 
@@ -72,8 +69,6 @@ async function getImage(html, postId) {
   if (!result) return '';
 
   const url = await uploadFile(postId);
-
-  fs.unlinkSync(`./${postId}`);
 
   return url;
 }
@@ -156,7 +151,7 @@ exports.sendWebhook = functions.database.ref('/posts/{postId}/').onCreate(async 
 
   const { timestamp, content, image } = snapshot.val();
 
-  const time_formatted = moment(timestamp).format('h:mm A \- DD/MM/YYYY');
+  const time_formatted = moment(timestamp).tz('Australia/Sydney').format('h:mm A \- DD/MM/YYYY');
 
   const data = {
     "content": null,
