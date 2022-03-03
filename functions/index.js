@@ -2,7 +2,6 @@ const functions = require('firebase-functions');
 const { parse } = require('node-html-parser');
 const firebase = require('firebase-admin');
 const axiosRetry = require('axios-retry');
-const moment = require('moment-timezone');
 const axios = require('axios');
 const fs = require('fs');
 
@@ -151,8 +150,6 @@ exports.sendWebhook = functions.database.ref('/posts/{postId}/').onCreate(async 
 
   const { timestamp, content, image } = snapshot.val();
 
-  const time_formatted = moment(timestamp).tz('Australia/Sydney').format('h:mm A \- DD/MM/YYYY');
-
   const data = {
     "content": null,
     "embeds": [
@@ -160,8 +157,9 @@ exports.sendWebhook = functions.database.ref('/posts/{postId}/').onCreate(async 
         "description": content,
         "color": 16711680,
         "footer": {
-          "text": "Posted at " + time_formatted
+          "text": "Posted",
         },
+        "timestamp": new Date(timestamp).toISOString(),
         "image": {
           "url": image
         }
